@@ -1,5 +1,4 @@
-﻿
-let p = require('../index.js');
+﻿let p = require('../index.js');
 let ds = p.createDataset();
 
 ds.add('Alice', 'Love at last', 5);
@@ -22,7 +21,7 @@ ds.add('Dave', 'Remance forever', 0);
 ds.add('Dave', 'Nonstop car chases', 4);
 
 const cf = p.createInstance();
-const training = cf.fit(ds);
+const training = cf.training(ds);
 
 // Export trained dataset
 const dump = training.export();
@@ -58,9 +57,8 @@ target.add('Dave', 'Remance forever');
 target.add('Dave', 'Nonstop car chases');
 target.add('Dave', 'Sword vs. karate');
 
-
 cf.transform(training, target);
-console.dir(target.getTable(0));
+console.log("Trainig", target.getTable(0, 'user', 'desc'));
 
 // Load exported dataset
 const pImport = JSON.parse(fs.readFileSync('./dump.json').toString());
@@ -69,5 +67,17 @@ let exportedDataset = p.createDataset();
 // Import dataset
 exportedDataset.import(pImport);
 // Predict 
+target.clearPrediction();
+console.log("Clear", target.getTable(0));
 cf.transform(exportedDataset, target);
-console.dir(target.getTable(0));
+console.log("Import", target.getTable(0));
+
+function printPredict(user, item) {
+    console.log(user, item, cf.predict(training, user, item).toFixed(0));
+}
+
+printPredict('Alice', 'Cute puppies of love');
+printPredict("Bob", 'Remance forever');
+printPredict("Carol", 'Remance forever');
+printPredict("Dave", 'Cute puppies of love');
+printPredict("Dave", 'Sword vs. karate');

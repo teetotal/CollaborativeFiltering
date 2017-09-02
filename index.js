@@ -33,22 +33,97 @@ class collaborativeFilteringTargetDataset {
         this.predicted = [];
     }
 
+    /**
+     * 
+     * @param {String} user
+     * @param {String} item
+     */
     add(user, item) {
         this.users.push(user);
         this.items.push(item);
     }
 
-    getTable(fixed) {
+    clearPrediction() {
+        delete this.predicted;
+        this.predicted = [];
+    }
+
+    /**
+     * Get Predicted Result
+     * @param {Number} fixed
+     * @param {String} sortKey  user | item | predicted
+     * @param {String} sortType    desc(default) | asc
+     */
+    getTable(fixed, sortKey, sortType) {
         let arr = [];
         for (let n = 0; n < this.users.length; n++) {
+            let predicted;
+            if (this.predicted[n] == null) {
+                predicted = null
+            } else {
+                predicted = (fixed >= 0 ? this.predicted[n].toFixed(fixed) : this.predicted[n])
+            }
             arr.push({
                 user: this.users[n]
                 , item: this.items[n]
-                , predicted: (fixed >= 0 ? this.predicted[n].toFixed(fixed) : this.predicted[n])
+                , predicted: predicted
+            });
+        }
+
+        if (sortKey) {
+            sortType = sortType ? sortType : "desc";
+            arr.sort((a, b) => {
+                if (sortKey === 'predicted') {
+                    if (sortType === "desc")
+                        return b[sortKey] - a[sortKey];
+                    else
+                        return a[sortKey] - b[sortKey];
+                }
+                else {
+                    if (sortType === "desc") {
+                        if (a[sortKey] > b[sortKey]) return -1;
+                        else return 1;
+                    } else {
+                        if (b[sortKey] > a[sortKey]) return -1;
+                        else return 1;
+                    }
+                }
             });
         }
 
         return arr;
+    }
+}
+
+class hashArray {
+    constructor() {
+        this.hash = {};
+        this.array = [];
+    }
+
+    getIdx(key) {
+        if (this.hash[key] == null) {
+            this.array.push(key);
+            this.hash[key] = this.array.length - 1;
+        }
+
+        return this.hash[key];
+    }
+
+    getKey(idx) {
+        return this.array[idx];
+    }
+
+    import(p) {
+        delete this.hash;
+        this.hash = {};
+        delete this.array;
+        this.array = [];
+
+        for (let n = 0; n < p.array.length; n++) {
+            this.array.push(p.array[n]);
+            this.hash[p.array[n]] = this.array.length - 1;
+        }
     }
 }
 /**
@@ -56,42 +131,54 @@ class collaborativeFilteringTargetDataset {
  */
 class collaborativeFilteringDataset {
     constructor(dimension) {
+        this.meta = {
+            users: new hashArray(),
+            items: new hashArray()
+        };
         this.users = {};
         this.items = {};
-        this.dimension = dimension ? dimension : 2;
-        this.isCleanup = false;
+        this.dimension = dimension ? dimension : 2;        
     }
 
+    /**
+     * 
+     * @param {String} user
+     * @param {String} item
+     * @param {Number} rating
+     */
     add(user, item, rating) {
-        if (this.users[user] == null) {
-            this.users[user] = {
+        const userIdx = this.meta.users.getIdx(user);
+        const itemIdx = this.meta.items.getIdx(item);
+
+        if (this.users[userIdx] == null) {
+            this.users[userIdx] = {
                 theta: [],
                 ratings: [],
                 items: []
             };
 
             for (let n = 0; n < this.dimension; n++) {
-                this.users[user].theta.push(Math.random());
+                this.users[userIdx].theta.push(Math.random());
             }
         }
 
-        this.users[user].ratings.push(rating);
-        this.users[user].items.push(item);
-
-        if (this.items[item] == null) {
-            this.items[item] = {
+        if (this.items[itemIdx] == null) {
+            this.items[itemIdx] = {
                 x: [],
                 users: [],
                 ratings: []
             };
 
             for (let n = 0; n < this.dimension; n++) {
-                this.items[item].x.push(Math.random());
+                this.items[itemIdx].x.push(Math.random());
             }
         }
 
-        this.items[item].ratings.push(rating);
-        this.items[item].users.push(user);
+        this.users[userIdx].ratings.push(rating);
+        this.users[userIdx].items.push(itemIdx);
+
+        this.items[itemIdx].ratings.push(rating);
+        this.items[itemIdx].users.push(userIdx);
     }
 
     getUsers(users) {
@@ -116,34 +203,19 @@ class collaborativeFilteringDataset {
         return arr;
     }
 
-    cleanup() {
-        if (this.isCleanup === false) {
-            for (let user in this.users) {
-                delete this.users[user].ratings;
-                delete this.users[user].items;
-            }
-
-            for (let item in this.items) {
-                delete this.items[item].ratings;
-                delete this.items[item].users;
-            }
-            this.isCleanup = true;
-        }
-    }
-
     export() {
-        this.cleanup();
         return {
             theta: this.users,
-            x: this.items
+            x: this.items,
+            meta: this.meta
         };
     }
 
     import(p) {
         this.users = p.theta;
         this.items = p.x;
-        this.isCleanup = true;
-
+        this.meta.users.import(p.meta.users);
+        this.meta.items.import(p.meta.items);
     }
 }
 
@@ -179,23 +251,7 @@ class collaborativeFiltering {
         }
         return val;
     }
-    /**
-     * assign random value
-     * @param {any} length
-     * @param {any} dimension
-     */
-    setRandom(length, dimension) {
-        let val = [];
-        for (let n = 0; n < length; n++) {
-            let ele = [];
-            for (let m = 0; m < (dimension ? dimension : this.dimension); m++) {
-                ele[m] = Math.random();
-            }
-            val[n] = ele;
-        }
-        return val;
-    }
-
+    
     /**
      * update theta or x
      * @param {any} dest destination
@@ -211,11 +267,11 @@ class collaborativeFiltering {
     /**
      * training
      * @param {any} dataset
-     * @param {any} iterations
-     * @param {any} lambda
-     * @param {any} alpha
+     * @param {Number} iterations option
+     * @param {Number} lambda option
+     * @param {Number} alpha option
      */
-    fit(dataset, iterations, lambda, alpha) {
+    training(dataset, iterations, lambda, alpha) {
         iterations = iterations ? iterations : 500;
         lambda = lambda ? lambda : 0;
         alpha = alpha ? alpha : 0.01;
@@ -244,7 +300,6 @@ class collaborativeFiltering {
                 );
             }
         }
-        dataset.cleanup();
         return dataset;
     }
 
@@ -260,8 +315,8 @@ class collaborativeFiltering {
 
         for (let n = 0; n < users.length; n++) {
             const predict = this.innerProduct(
-                dataset.users[users[n]].theta
-                , dataset.items[items[n]].x
+                dataset.users[dataset.meta.users.getIdx(users[n])].theta
+                , dataset.items[dataset.meta.items.getIdx(items[n])].x
             );
 
             ratings.push(predict);
@@ -272,11 +327,11 @@ class collaborativeFiltering {
     /**
      * predict
      * @param {any} dataset
-     * @param {any} user
-     * @param {any} item
+     * @param {String} user
+     * @param {String} item
      */
     predict(dataset, user, item) {
-        return this.innerProduct(dataset.users[user].theta, dataset.items[item].x);
+        return this.innerProduct(dataset.users[dataset.meta.users.getIdx(user)].theta, dataset.items[dataset.meta.items.getIdx(item)].x);
     }
 }
 
