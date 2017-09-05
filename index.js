@@ -276,7 +276,6 @@ class collaborativeFiltering {
         lambda = lambda ? lambda : 0;
         alpha = alpha ? alpha : 0.01;
 
-
         let users = dataset.getUsers();
         let items = dataset.getItems();
 
@@ -299,8 +298,83 @@ class collaborativeFiltering {
                     , alpha
                 );
             }
+         
         }
         return dataset;
+        
+    }
+
+    /**
+     * Euclidean distance
+     * @param {*} dataset 
+     */
+    getDistance(dataset){
+        let users = dataset.getUsers();
+        let items = dataset.getItems();
+
+        let total = 0;
+        let cnt = 0;
+        for(let user in users){
+            let sum = 0;
+            cnt ++;
+            for(let n in users[user].items){
+                const item = users[user].items[n];
+                const rating = users[user].ratings[n];
+                const x = items[item].x;
+
+                const p = Number(this.innerProduct(users[user].theta, x).toFixed(0));
+                if(rating === p)
+                    continue;
+
+                sum += Math.pow(rating - p, 2);
+            }
+            total += Math.sqrt(sum);
+        }
+        return total / cnt;
+    }
+
+    cosinSimilarity(A, B){
+        let child = 0;
+        let aA = 0;
+        let aB = 0;
+        
+        for(let n=0; n < A.length; n ++){
+            child += A[n] * B[n];
+            aA += Math.pow(A[n], 2);
+            aB += Math.pow(B[n], 2);            
+        }
+        return (child / Math.sqrt(aA * aB));
+    }
+
+    getSimilarity(dataset, user){      
+        if(user == null)
+            return null;
+        
+        let p = [];
+        const users = dataset.getUsers();
+        const idx = dataset.meta.users.getIdx(user);
+        
+        if(idx == null)
+            return null;
+
+        const theta = users[idx].theta;
+
+        for(let id in users){
+            if(idx == id)
+                continue;
+
+            p.push(
+                {
+                    user: dataset.meta.users.getKey(id),
+                    similarity: this.cosinSimilarity(theta, users[id].theta)
+                }                
+            );
+        }
+
+        p.sort((A,B)=>{
+            return B.similarity - A.similarity;
+        });
+        return p;
     }
 
     /**
