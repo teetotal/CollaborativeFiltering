@@ -246,6 +246,7 @@ class collaborativeFiltering {
                 let predicted = this.innerProduct(theta, x[n]);
                 sum += (predicted - ratings[n]) * x[n][i];
             }
+            sum = sum / ratings.length;
             sum += theta[i] * lambda;
             val[i] = sum;
         }
