@@ -246,7 +246,6 @@ class collaborativeFiltering {
                 let predicted = this.innerProduct(theta, x[n]);
                 sum += (predicted - ratings[n]) * x[n][i];
             }
-            sum = sum / ratings.length;
             sum += theta[i] * lambda;
             val[i] = sum;
         }
@@ -281,24 +280,36 @@ class collaborativeFiltering {
         let items = dataset.getItems();
 
         for (let n = 0; n < iterations; n++) {
-
+            let tempUser = {};
+            let tmepItem = {};
             for (let user in users) {
                 let x = dataset.getItems(users[user].items);
+                tempUser[user] = this.gradientDecent(users[user].ratings, users[user].theta, x, lambda);                
+            }
+
+            for (let item in items) {
+                let theta = dataset.getUsers(items[item].users);
+                tmepItem[item] = this.gradientDecent(items[item].ratings, items[item].x, theta, lambda);                
+            }
+
+            // update
+            for(let user in users){
                 this.update(
                     users[user].theta
-                    , this.gradientDecent(users[user].ratings, users[user].theta, x, lambda)
+                    , tempUser[user]
                     , alpha
                 );
             }
 
             for (let item in items) {
-                let theta = dataset.getUsers(items[item].users);
                 this.update(
                     items[item].x
-                    , this.gradientDecent(items[item].ratings, items[item].x, theta, lambda)
+                    , tmepItem[item]
                     , alpha
                 );
             }
+
+
          
         }
         return dataset;
