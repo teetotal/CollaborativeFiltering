@@ -192,6 +192,20 @@ class collaborativeFilteringDataset {
         return arr;
     }
 
+    getMetaUsers(userIdx){
+        if(userIdx == null)
+            return this.meta.users;
+        
+        return this.meta.users.getKey(userIdx);
+    }
+
+    getMetaItems(itemIdx){
+        if(itemIdx == null)
+            return this.meta.items;
+        
+        return this.meta.items.getKey(itemIdx);
+    }
+
     getItems(items) {
         if (items == null)
             return this.items;
@@ -244,14 +258,28 @@ class collaborativeFiltering {
             let sum = 0;
             for (var n = 0; n < ratings.length; n++) {
                 let predicted = this.innerProduct(theta, x[n]);
+                sum += ((predicted - ratings[n]) * x[n][i]) + (theta[i] * lambda);
+            }
+            val[i] = sum / ratings.length; 
+        }
+        return val;
+    }
+    /*
+    gradientDecent(ratings, theta, x, lambda) {
+        let val = [];
+        for (let i = 0; i < theta.length; i++) {
+            let sum = 0;
+            for (var n = 0; n < ratings.length; n++) {
+                let predicted = this.innerProduct(theta, x[n]);
                 sum += (predicted - ratings[n]) * x[n][i];
             }
+            sum = sum / ratings.length; // 평균
             sum += theta[i] * lambda;
             val[i] = sum;
         }
         return val;
     }
-    
+    */
     /**
      * update theta or x
      * @param {any} dest destination
@@ -272,7 +300,7 @@ class collaborativeFiltering {
      * @param {Number} alpha option
      */
     training(dataset, iterations, lambda, alpha) {
-        iterations = iterations ? iterations : 500;
+        iterations = iterations ? iterations : 5000;
         lambda = lambda ? lambda : 0;
         alpha = alpha ? alpha : 0.01;
 
@@ -280,6 +308,7 @@ class collaborativeFiltering {
         let items = dataset.getItems();
 
         for (let n = 0; n < iterations; n++) {
+            console.log("epoch: " + n);
             let tempUser = {};
             let tmepItem = {};
             for (let user in users) {
